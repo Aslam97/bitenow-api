@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        User::factory(10)->create();
+
         $categories = ['Tapas/Small Plates', 'Cocktail Bars', 'American (New)', 'Breakfast & Brunch', 'Seafood', 'Steakhouses', 'Italian', 'Mexican', 'Japanese', 'Chinese'];
 
         // for measuring only
@@ -35,8 +37,6 @@ class DatabaseSeeder extends Seeder
                 'author_type' => User::class,
             ]);
         });
-
-        User::factory(10)->create();
 
         Business::factory(10)->create()->each(function ($business) use ($categories) {
             $business->attachTags(
