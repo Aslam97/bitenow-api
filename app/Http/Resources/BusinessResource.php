@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,7 +15,7 @@ class BusinessResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
+        $parent = [
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
@@ -37,8 +38,34 @@ class BusinessResource extends JsonResource
                 'display_address' => $this->display_address,
             ],
             'rating' => (float) number_format($this->rating, 2),
+            'review_count' => $this->reviews_count,
             'distance' => $this->distance,
             'reviews' => ReviewResource::collection($this->whenLoaded('reviews')),
+            'opening_hours' => OpeningHourResource::collection($this->whenLoaded('openingHours')),
+            'is_closed' => $this->when($this->whenLoaded('openingHours'), function () {
+                $now = now();
+                $day = $now->format('l');
+                $time = $now->format('H:i:s');
+
+                $openingHours = $this->openingHours->filter(function ($openingHour) use ($day) {
+                    return  intval($openingHour->day) === Carbon::parse($day)->dayOfWeek;
+                });
+
+                if ($openingHours->isEmpty()) {
+                    return true;
+                }
+
+                $isOpen = $openingHours->filter(function ($openingHour) use ($time) {
+                    $open = Carbon::parse($openingHour->open);
+                    $close = Carbon::parse($openingHour->close);
+
+                    return $open->lte($time) && $close->gte($time);
+                });
+
+                return $isOpen->isEmpty();
+            }),
         ];
+
+        return $parent;
     }
 }

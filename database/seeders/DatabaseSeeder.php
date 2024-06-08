@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Business;
+use App\Models\OpeningHour;
 use App\Models\Review;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -48,6 +49,10 @@ class DatabaseSeeder extends Seeder
                 'reviewable_type' => Business::class,
                 'author_id' => User::inRandomOrder()->first()->id,
                 'author_type' => User::class,
+            ]);
+
+            OpeningHour::factory(rand(1, 7))->create([
+                'business_id' => $business->id,
             ]);
         });
     }

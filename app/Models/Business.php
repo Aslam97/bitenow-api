@@ -58,6 +58,11 @@ class Business extends Model
         return $this->morphMany(Review::class, 'reviewable');
     }
 
+    public function openingHours()
+    {
+        return $this->hasMany(OpeningHour::class);
+    }
+
     public function getSlugOptions(): SlugOptions
     {
         return SlugOptions::create()
