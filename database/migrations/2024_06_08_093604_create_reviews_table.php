@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('comment');
             $table->tinyInteger('helpful')->default(0);
             $table->tinyInteger('thanks')->default(0);
-            $table->boolean('love_this')->default(0);
-            $table->boolean('oh_no')->default(0);
+            $table->tinyInteger('love_this')->default(0);
+            $table->tinyInteger('oh_no')->default(0);
             $table->morphs('reviewable');
             $table->morphs('author');
             $table->timestamps();
