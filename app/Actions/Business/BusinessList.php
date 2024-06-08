@@ -109,7 +109,7 @@ class BusinessList
                 'openingHours',
                 AllowedInclude::relationship('categories', 'tags'), // set alias for tags relationship
             ])
-            ->defaultSort('created_at')
+            ->defaultSort('reviews_count')
             ->allowedSorts(['distance', 'rating', 'reviews_count'])
             ->withAvg('reviews as rating', 'rating')
             ->withCount('reviews')
@@ -159,6 +159,10 @@ class BusinessList
         $openNow = $data['filter']['open_now'] ?? null;
         $openAt = $data['filter']['open_at'] ?? null;
         $radius = $data['filter']['radius'] ?? null;
+        $paginate = $data['paginate'] ?? 0;
+
+        // paginate max value is 50
+        abort_if($paginate && ($paginate < 0 || $paginate > 50), 400, 'Paginate max value is 50');
 
         // either location or latitude and longitude must be provided
         abort_if(!$location && !$latitude && !$longitude, 400, 'Either location or latitude and longitude must be provided');
