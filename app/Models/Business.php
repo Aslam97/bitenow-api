@@ -27,6 +27,7 @@ class Business extends Model
         'url',
         'phone',
         'phone_country_code',
+        'price',
 
         // Address
         'address1',
@@ -41,6 +42,7 @@ class Business extends Model
     protected $casts = [
         'phone' => 'string',
         'phone_country_code' => 'string',
+        'price' => 'integer',
         'coordinates' => Point::class,
     ];
 
@@ -51,6 +53,7 @@ class Business extends Model
     protected $appends = [
         'display_phone',
         'display_address',
+        'price_display',
     ];
 
     public function reviews()
@@ -61,6 +64,11 @@ class Business extends Model
     public function openingHours()
     {
         return $this->hasMany(OpeningHour::class);
+    }
+
+    public function cuisines()
+    {
+        return $this->belongsToMany(Cuisine::class);
     }
 
     public function getSlugOptions(): SlugOptions
@@ -75,6 +83,13 @@ class Business extends Model
         return Attribute::make(
             get: fn (mixed $value, array $attributes) => (new PhoneNumber($attributes['phone'], $attributes['phone_country_code']))
                 ->formatNational()
+        );
+    }
+
+    protected function priceDisplay(): Attribute
+    {
+        return Attribute::make(
+            get: fn (mixed $value, array $attributes) => str_repeat('$', $attributes['price'])
         );
     }
 

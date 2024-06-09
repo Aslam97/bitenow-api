@@ -15,7 +15,15 @@ use Spatie\QueryBuilder\AllowedInclude;
 use Spatie\QueryBuilder\Filters\Filter;
 use Spatie\QueryBuilder\QueryBuilder;
 
-class CategoryFilter implements Filter
+class CuisineFilter implements Filter
+{
+    public function __invoke(Builder $query, $value, string $property): Builder
+    {
+        return $query->orWhere(fn ($query) => $query->whereHas('cuisines', fn ($query) => $query->whereIn('slug', $value)));
+    }
+}
+
+class TransactionFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
@@ -90,9 +98,11 @@ class BusinessList
 
         $business = QueryBuilder::for(Business::class)
             ->allowedFilters([
+                AllowedFilter::exact('price'),
                 AllowedFilter::scope('location', 'search_address'),
                 AllowedFilter::custom('term', new TermFilter),
-                AllowedFilter::custom('categories', new CategoryFilter),
+                AllowedFilter::custom('cuisine', new CuisineFilter),
+                AllowedFilter::custom('transactions', new TransactionFilter),
                 AllowedFilter::callback(
                     'radius',
                     fn ($query, $value) => $query->whereDistance('coordinates', $userPoint, '<', $value)
@@ -107,7 +117,8 @@ class BusinessList
                 'reviews',
                 'reviews.author',
                 'openingHours',
-                AllowedInclude::relationship('categories', 'tags'), // set alias for tags relationship
+                'cuisines',
+                AllowedInclude::relationship('transactions', 'tags'), // set alias for tags relationship
             ])
             ->defaultSort('reviews_count')
             ->allowedSorts(['distance', 'rating', 'reviews_count'])

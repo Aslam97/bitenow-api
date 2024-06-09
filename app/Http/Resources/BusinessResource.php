@@ -23,7 +23,15 @@ class BusinessResource extends JsonResource
             'url' => $this->url,
             'phone' => $this->phone,
             'display_phone' => $this->display_phone,
-            'categories' => CategoryResource::collection($this->whenLoaded('tags')),
+            'price' => $this->price,
+            'price_display' => $this->price_display,
+            'cuisines' => $this->when($this->whenLoaded('cuisines'), function () {
+                return $this->cuisines->map(fn ($cuisine) => [
+                    'name' => $cuisine->name,
+                    'slug' => $cuisine->slug,
+                ]);
+            }),
+            'transaction' => TransactionResource::collection($this->whenLoaded('tags')),
             'coordinates' => [
                 'latitude' => $this->coordinates->latitude,
                 'longitude' => $this->coordinates->longitude,

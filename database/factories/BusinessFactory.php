@@ -18,13 +18,16 @@ class BusinessFactory extends Factory
      */
     public function definition(): array
     {
+        $slug = $this->faker->unique()->slug;
+
         return [
             'name' => $this->faker->company,
-            'slug' => $this->faker->unique()->slug,
+            'slug' => $slug,
             'image_url' => $this->faker->imageUrl(),
-            'url' => $this->faker->url,
+            'url' => url('/businesses/' . $slug),
             'phone' => $this->faker->e164PhoneNumber(),
             'phone_country_code' => $this->faker->countryCode,
+            'price' => $this->faker->randomElement([1, 2, 3, 4, 5]),
 
             // Address
             'address1' => $this->faker->address,
