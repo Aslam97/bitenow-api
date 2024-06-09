@@ -19,7 +19,9 @@ class CuisineFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
-        return $query->orWhere(fn ($query) => $query->whereHas('cuisines', fn ($query) => $query->whereIn('slug', $value)));
+        $value = is_array($value) ? $value : [$value];
+
+        return $query->whereHas('cuisines', fn ($query) => $query->whereIn('slug', $value));
     }
 }
 
@@ -101,7 +103,7 @@ class BusinessList
                 AllowedFilter::exact('price'),
                 AllowedFilter::scope('location', 'search_address'),
                 AllowedFilter::custom('term', new TermFilter),
-                AllowedFilter::custom('cuisine', new CuisineFilter),
+                AllowedFilter::custom('cuisines', new CuisineFilter),
                 AllowedFilter::custom('transactions', new TransactionFilter),
                 AllowedFilter::callback(
                     'radius',
@@ -147,7 +149,7 @@ class BusinessList
         try {
             $this->validateFilter($request->all());
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], $e->getStatusCode());
+            return response()->json(['data' => [], 'error' => $e->getMessage()], $e->getStatusCode());
         }
 
         return $this->handle(compact('paginate', 'user'));

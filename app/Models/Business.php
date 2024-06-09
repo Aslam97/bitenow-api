@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasMedia;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,7 @@ class Business extends Model
     use HasSlug;
     use HasSpatial;
     use HasTags;
+    use HasMedia;
 
     protected $fillable = [
         'name',

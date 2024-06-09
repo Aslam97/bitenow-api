@@ -20,10 +20,13 @@ class BusinessFactory extends Factory
     {
         $slug = $this->faker->unique()->slug;
 
+        // random number from 1 to 20
+        $number = $this->faker->numberBetween(1, 20);
+
         return [
             'name' => $this->faker->company,
             'slug' => $slug,
-            'image_url' => $this->faker->imageUrl(),
+            'image_url' => "images/businesses/{$number}.webp",
             'url' => url('/businesses/' . $slug),
             'phone' => $this->faker->e164PhoneNumber(),
             'phone_country_code' => $this->faker->countryCode,
