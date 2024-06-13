@@ -11,8 +11,8 @@ use Spatie\Sluggable\SlugOptions;
 class Cuisine extends Model
 {
     use HasFactory;
-    use HasSlug;
     use HasMedia;
+    use HasSlug;
 
     protected $fillable = ['name', 'slug', 'image_url', 'color'];
 

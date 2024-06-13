@@ -17,10 +17,10 @@ use Spatie\Tags\HasTags;
 class Business extends Model
 {
     use HasFactory;
+    use HasMedia;
     use HasSlug;
     use HasSpatial;
     use HasTags;
-    use HasMedia;
 
     protected $fillable = [
         'name',
