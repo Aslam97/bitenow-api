@@ -19,15 +19,13 @@ class BusinessFactory extends Factory
     public function definition(): array
     {
         $slug = $this->faker->unique()->slug;
-
-        // random number from 1 to 20
-        $number = $this->faker->numberBetween(1, 20);
+        $number = $this->faker->numberBetween(1, 40);
 
         return [
             'name' => $this->faker->company,
             'slug' => $slug,
             'image_url' => "images/businesses/{$number}.webp",
-            'url' => url('/businesses/' . $slug),
+            'url' => url('/businesses/'.$slug),
             'phone' => $this->faker->e164PhoneNumber(),
             'phone_country_code' => $this->faker->countryCode,
             'price' => $this->faker->randomElement([1, 2, 3, 4, 5]),
