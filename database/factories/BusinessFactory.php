@@ -24,7 +24,7 @@ class BusinessFactory extends Factory
         return [
             'name' => $this->faker->company,
             'slug' => $slug,
-            'image_url' => "images/businesses/{$number}.webp",
+            'image_url' => "images/businesses/{$number}-pexels.jpg",
             'url' => url('/businesses/'.$slug),
             'phone' => $this->faker->e164PhoneNumber(),
             'phone_country_code' => $this->faker->countryCode,
