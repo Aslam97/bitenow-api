@@ -14,10 +14,8 @@ class OpeningHourResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
-            'day' => $this->day,
-            'open' => $this->open,
-            'close' => $this->close,
-        ];
+        $this->resource->makeHidden(['id', 'business_id', 'created_at', 'updated_at']);
+
+        return parent::toArray($request);
     }
 }
