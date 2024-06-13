@@ -119,7 +119,8 @@ class BusinessList
 
         $business = QueryBuilder::for(Business::class)
             ->allowedFilters([
-                AllowedFilter::exact('price'),
+                // allow only if price greater than zero
+                AllowedFilter::callback('price', fn ($query, $value) => $query->when($value, fn ($query) => $query->where('price', $value))),
                 AllowedFilter::scope('location', 'search_address'),
                 AllowedFilter::custom('term', new TermFilter),
                 AllowedFilter::custom('cuisines', new CuisineFilter),
