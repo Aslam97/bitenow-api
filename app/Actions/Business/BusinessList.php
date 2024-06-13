@@ -6,6 +6,7 @@ use App\Http\Resources\BusinessResource;
 use App\Models\Business;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Validator;
 use Lorisleiva\Actions\ActionRequest;
 use Lorisleiva\Actions\Concerns\AsAction;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
@@ -31,22 +32,6 @@ class TransactionFilter implements Filter
     {
         // return $query->orWhere(fn ($query) => $query->withAnyTags($value));
         return $query->withAnyTags($value);
-    }
-}
-
-class LatitudeFilter implements Filter
-{
-    public function __invoke(Builder $query, $value, string $property): Builder
-    {
-        return $query->when($value, fn ($query) => $query->whereRaw('ST_X(coordinates) LIKE ?', ['%'.$value.'%']));
-    }
-}
-
-class LongitudeFilter implements Filter
-{
-    public function __invoke(Builder $query, $value, string $property): Builder
-    {
-        return $query->when($value, fn ($query) => $query->whereRaw('ST_Y(coordinates) LIKE ?', ['%'.$value.'%']));
     }
 }
 
@@ -110,16 +95,70 @@ class BusinessList
 {
     use AsAction;
 
+    public function authorize(ActionRequest $request): bool
+    {
+        return $request->wantsJson();
+    }
+
+    public function rules(): array
+    {
+        return [
+            // open_now and open_at cannot be used together
+            'filter.open_now' => ['boolean'],
+            'filter.open_at' => ['integer'],
+            // location is required if latitude and longitude are not provided
+            'filter.location' => ['required_without_all:latitude,longitude', 'string', 'min:3'],
+            'filter.radius' => ['integer', 'max:40000'],
+            'filter.price' => ['integer', 'min:1', 'max:5'],
+            // latitude and longitude must be provided
+            'latitude' => ['required_with:longitude', 'numeric', 'min:-90', 'max:90'],
+            'longitude' => ['required_with:latitude', 'numeric', 'min:-180', 'max:180'],
+            // paginate max value is 50
+            'paginate' => ['integer', 'max:50'],
+        ];
+    }
+
+    public function afterValidator(Validator $validator, ActionRequest $request): void
+    {
+        if ($request->filled('filter.open_now') && $request->filled('filter.open_at')) {
+            $validator->errors()->add('filter.open_now', 'open now and open at cannot be used together');
+            $validator->errors()->add('filter.open_at', 'open now and open at cannot be used together');
+        }
+    }
+
+    public function prepareForValidation(ActionRequest $request): void
+    {
+        $request->whenFilled('filter.open_now', function (string $input) use ($request) {
+            $request->merge([
+                'filter' => [
+                    ...$request->input('filter', []),
+                    'open_now' => filter_var($input, FILTER_VALIDATE_BOOLEAN),
+                ],
+            ]);
+        });
+    }
+
+    public function getValidationAttributes(): array
+    {
+        return [
+            'filter.open_now' => 'open now',
+            'filter.open_at' => 'open at',
+            'filter.location' => 'location',
+            'filter.radius' => 'radius',
+            'filter.price' => 'price',
+        ];
+    }
+
     public function handle(array $data = []): mixed
     {
-        $userPoint = new Point($data['user']['latitude'], $data['user']['longitude'], Srid::WGS84->value);
+        // dd($data['paginate']);
+        $userPoint = new Point($data['latitude'] ?? 0, $data['longitude'] ?? 0, Srid::WGS84->value);
 
         $query = DB::enableQueryLog();
 
-        $business = QueryBuilder::for(Business::class)
+        $businesses = QueryBuilder::for(Business::class)
             ->allowedFilters([
-                // allow only if price greater than zero
-                AllowedFilter::callback('price', fn ($query, $value) => $query->when($value, fn ($query) => $query->where('price', $value))),
+                AllowedFilter::exact('price'),
                 AllowedFilter::scope('location', 'search_address'),
                 AllowedFilter::custom('term', new TermFilter),
                 AllowedFilter::custom('cuisines', new CuisineFilter),
@@ -128,9 +167,6 @@ class BusinessList
                     'radius',
                     fn ($query, $value) => $query->when($value, fn ($query) => $query->whereDistance('coordinates', $userPoint, '<', $value))
                 ),
-                // if you wondering why X and Y are swapped, read this: https://dba.stackexchange.com/a/242004
-                AllowedFilter::custom('latitude', new LatitudeFilter),
-                AllowedFilter::custom('longitude', new LongitudeFilter),
                 AllowedFilter::custom('open_at', new OpenAtFilter),
                 AllowedFilter::custom('open_now', new OpenNowFilter),
             ])
@@ -154,48 +190,18 @@ class BusinessList
 
         // dd(DB::getQueryLog());
 
-        return BusinessResource::collection($business);
+        return $businesses;
     }
 
     public function asController(ActionRequest $request)
     {
-        $paginate = $request->input('paginate', 0);
-        $user = [
-            'latitude' => $request->input('user.latitude', 0),
-            'longitude' => $request->input('user.longitude', 0),
-        ];
-
-        try {
-            $this->validateFilter($request->all());
-        } catch (\Exception $e) {
-            return response()->json(['data' => [], 'error' => $e->getMessage()], $e->getStatusCode());
-        }
-
-        return $this->handle(compact('paginate', 'user'));
+        return $this->handle(
+            $request->validated()
+        );
     }
 
-    protected function validateFilter(array $data)
+    public function jsonResponse($businesses)
     {
-        $location = $data['filter']['location'] ?? null;
-        $latitude = $data['filter']['latitude'] ?? null;
-        $longitude = $data['filter']['longitude'] ?? null;
-        $openNow = $data['filter']['open_now'] ?? null;
-        $openAt = $data['filter']['open_at'] ?? null;
-        $radius = $data['filter']['radius'] ?? null;
-        $paginate = $data['paginate'] ?? 0;
-
-        // paginate max value is 50
-        abort_if($paginate && ($paginate < 0 || $paginate > 50), 400, 'Paginate max value is 50');
-
-        // either location or latitude and longitude must be provided
-        abort_if(! $location && ! $latitude && ! $longitude, 400, 'Either location or latitude and longitude must be provided');
-        abort_if(($latitude && ! $longitude) || (! $latitude && $longitude), 400, 'Both latitude and longitude must be provided');
-
-        // radius must be integer and max value is 40_000 meters
-        abort_if($radius && (! is_numeric($radius) || $radius > 40_000), 400, 'Radius must be integer and max value is 40_000');
-
-        // open_now and open_at must not be provided at the same time
-        abort_if($openNow && $openAt, 400, 'You must specify either open_at or open_now, not both.');
-        abort_if($openAt && ! is_numeric($openAt), 400, 'open_at must be unix timestamp');
+        return BusinessResource::collection($businesses);
     }
 }
