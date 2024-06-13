@@ -63,7 +63,6 @@ class OpenAtFilter implements Filter
     public function __invoke(Builder $query, $value, string $property): Builder
     {
         return $query->when($value, function ($query, $value) {
-            // value is in unix timestamp, convert into parts
             $datetime = now()->setTimestamp($value);
             $day = day_of_week($datetime->dayOfWeek);
             $openAt = $datetime->format('H:i:s');
