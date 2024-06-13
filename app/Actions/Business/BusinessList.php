@@ -29,7 +29,8 @@ class TransactionFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
-        return $query->orWhere(fn ($query) => $query->withAnyTags($value));
+        // return $query->orWhere(fn ($query) => $query->withAnyTags($value));
+        return $query->withAnyTags($value);
     }
 }
 
@@ -37,7 +38,7 @@ class LatitudeFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
-        return $query->whereRaw('ST_X(coordinates) LIKE ?', ['%' . $value . '%']);
+        return $query->when($value, fn ($query) => $query->whereRaw('ST_X(coordinates) LIKE ?', ['%'.$value.'%']));
     }
 }
 
@@ -45,7 +46,7 @@ class LongitudeFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
-        return $query->whereRaw('ST_Y(coordinates) LIKE ?', ['%' . $value . '%']);
+        return $query->when($value, fn ($query) => $query->whereRaw('ST_Y(coordinates) LIKE ?', ['%'.$value.'%']));
     }
 }
 
@@ -61,15 +62,17 @@ class OpenAtFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
-        // value is in unix timestamp, convert into parts
-        $datetime = now()->setTimestamp($value);
-        $day = $datetime->dayOfWeek;
-        $openAt = $datetime->format('H:i:s');
+        return $query->when($value, function ($query, $value) {
+            // value is in unix timestamp, convert into parts
+            $datetime = now()->setTimestamp($value);
+            $day = day_of_week($datetime->dayOfWeek);
+            $openAt = $datetime->format('H:i:s');
 
-        return $query->whereHas(
-            'openingHours',
-            fn ($query) => $query->where('day', $day)->whereTime('open', '<=', $openAt)->whereTime('close', '>=', $openAt)
-        );
+            return $query->whereHas(
+                'openingHours',
+                fn ($query) => $query->where('day', $day)->whereTime('open', '<=', $openAt)->whereTime('close', '>=', $openAt)
+            );
+        });
     }
 }
 
@@ -77,13 +80,29 @@ class OpenNowFilter implements Filter
 {
     public function __invoke(Builder $query, $value, string $property): Builder
     {
+        $openNow = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+
         $now = now();
-        $day = $now->dayOfWeek;
+        $day = day_of_week();
+
         $openAt = $now->format('H:i:s');
 
-        return $query->whereHas(
-            'openingHours',
-            fn ($query) => $query->where('day', $day)->whereTime('open', '<=', $openAt)->whereTime('close', '>=', $openAt)
+        return $query->when(
+            $openNow,
+            function ($query) use ($day, $openAt) {
+                return $query->whereHas(
+                    'openingHours',
+                    fn ($query) => $query->where('day', $day)->whereTime('open', '<=', $openAt)->whereTime('close', '>=', $openAt)
+                );
+            },
+            function ($query) use ($day, $openAt) {
+                return $query->whereHas(
+                    'openingHours',
+                    fn ($query) => $query->where('day', $day)->where(
+                        fn ($query) => $query->whereTime('open', '>', $openAt)->orWhereTime('close', '<', $openAt)
+                    )
+                );
+            }
         );
     }
 }
@@ -107,7 +126,7 @@ class BusinessList
                 AllowedFilter::custom('transactions', new TransactionFilter),
                 AllowedFilter::callback(
                     'radius',
-                    fn ($query, $value) => $query->whereDistance('coordinates', $userPoint, '<', $value)
+                    fn ($query, $value) => $query->when($value, fn ($query) => $query->whereDistance('coordinates', $userPoint, '<', $value))
                 ),
                 // if you wondering why X and Y are swapped, read this: https://dba.stackexchange.com/a/242004
                 AllowedFilter::custom('latitude', new LatitudeFilter),
@@ -135,7 +154,7 @@ class BusinessList
 
         // dd(DB::getQueryLog());
 
-        return $business;
+        return BusinessResource::collection($business);
     }
 
     public function asController(ActionRequest $request)
@@ -155,15 +174,6 @@ class BusinessList
         return $this->handle(compact('paginate', 'user'));
     }
 
-    public function jsonResponse($data)
-    {
-        if ($data instanceof \Illuminate\Http\JsonResponse) {
-            return $data;
-        }
-
-        return BusinessResource::collection($data);
-    }
-
     protected function validateFilter(array $data)
     {
         $location = $data['filter']['location'] ?? null;
@@ -178,14 +188,14 @@ class BusinessList
         abort_if($paginate && ($paginate < 0 || $paginate > 50), 400, 'Paginate max value is 50');
 
         // either location or latitude and longitude must be provided
-        abort_if(!$location && !$latitude && !$longitude, 400, 'Either location or latitude and longitude must be provided');
-        abort_if(($latitude && !$longitude) || (!$latitude && $longitude), 400, 'Both latitude and longitude must be provided');
+        abort_if(! $location && ! $latitude && ! $longitude, 400, 'Either location or latitude and longitude must be provided');
+        abort_if(($latitude && ! $longitude) || (! $latitude && $longitude), 400, 'Both latitude and longitude must be provided');
 
         // radius must be integer and max value is 40_000 meters
-        abort_if($radius && (!is_numeric($radius) || $radius > 40_000), 400, 'Radius must be integer and max value is 40_000');
+        abort_if($radius && (! is_numeric($radius) || $radius > 40_000), 400, 'Radius must be integer and max value is 40_000');
 
         // open_now and open_at must not be provided at the same time
         abort_if($openNow && $openAt, 400, 'You must specify either open_at or open_now, not both.');
-        abort_if($openAt && !is_numeric($openAt), 400, 'open_at must be unix timestamp');
+        abort_if($openAt && ! is_numeric($openAt), 400, 'open_at must be unix timestamp');
     }
 }
