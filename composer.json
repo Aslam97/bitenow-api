@@ -17,7 +17,8 @@
         "propaganistas/laravel-phone": "^5.3",
         "spatie/laravel-query-builder": "^6.0",
         "spatie/laravel-sluggable": "^3.6",
-        "spatie/laravel-tags": "^4.6"
+        "spatie/laravel-tags": "^4.6",
+        "spatie/opening-hours": "^3.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

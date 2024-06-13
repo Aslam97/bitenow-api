@@ -85,21 +85,21 @@ class OpenNowFilter implements Filter
         $now = now();
         $day = day_of_week();
 
-        $openAt = $now->format('H:i:s');
+        $curtime = $now->format('H:i:s');
 
         return $query->when(
             $openNow,
-            function ($query) use ($day, $openAt) {
+            function ($query) use ($day, $curtime) {
                 return $query->whereHas(
                     'openingHours',
-                    fn ($query) => $query->where('day', $day)->whereTime('open', '<=', $openAt)->whereTime('close', '>=', $openAt)
+                    fn ($query) => $query->where('day', $day)->whereTime('open', '<=', $curtime)->whereTime('close', '>=', $curtime)
                 );
             },
-            function ($query) use ($day, $openAt) {
+            function ($query) use ($day, $curtime) {
                 return $query->whereHas(
                     'openingHours',
                     fn ($query) => $query->where('day', $day)->where(
-                        fn ($query) => $query->whereTime('open', '>', $openAt)->orWhereTime('close', '<', $openAt)
+                        fn ($query) => $query->whereTime('close', '<', $curtime)->orWhereTime('open', '>', $curtime)
                     )
                 );
             }

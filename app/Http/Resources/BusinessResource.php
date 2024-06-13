@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Spatie\OpeningHours\OpeningHours;
 
 class BusinessResource extends JsonResource
 {
@@ -47,26 +48,19 @@ class BusinessResource extends JsonResource
         $parent['rating'] = (float) number_format($this->rating, 2);
         $parent['reviews'] = ReviewResource::collection($this->whenLoaded('reviews'));
         $parent['opening_hours'] = OpeningHourResource::collection($this->whenLoaded('openingHours'));
-        $parent['is_closed'] = $this->when($this->whenLoaded('openingHours'), function () {
-            $now = now();
-            $time = $now->format('H:i:s');
-
-            $openingHours = $this->openingHours->filter(function ($openingHour) {
-                return intval($openingHour->day) === day_of_week();
+        $parent['is_open'] = $this->when($this->whenLoaded('openingHours'), function () {
+            $expected = $this->openingHours->groupBy('day_name')->map(function ($hours) {
+                return $hours->map(function ($hour) {
+                    return $hour->open.'-'.$hour->close;
+                });
             });
 
-            if ($openingHours->isEmpty()) {
-                return true;
-            }
-
-            $isOpen = $openingHours->filter(function ($openingHour) use ($time) {
-                $open = Carbon::parse($openingHour->open);
-                $close = Carbon::parse($openingHour->close);
-
-                return $open->lte($time) && $close->gte($time);
+            // make keys lowercase
+            $openingHours = $expected->mapWithKeys(function ($hours, $day) {
+                return [strtolower($day) => $hours];
             });
 
-            return $isOpen->isEmpty();
+            return OpeningHours::createAndMergeOverlappingRanges($openingHours->toArray())->isOpenAt(Carbon::now());
         });
 
         return $parent;
