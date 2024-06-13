@@ -10,9 +10,9 @@ use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
 use MatanYadaev\EloquentSpatial\Objects\Point;
-use Illuminate\Support\Facades\File;
 
 class DatabaseSeeder extends Seeder
 {
@@ -52,7 +52,7 @@ class DatabaseSeeder extends Seeder
         $colors = [
             '#D3EFDA',
             '#FFD688',
-            '#FFE1DE'
+            '#FFE1DE',
         ];
 
         $this->getSeedData('cuisines')->each(function ($cuisine) use ($colors) {
@@ -68,7 +68,7 @@ class DatabaseSeeder extends Seeder
 
     public function seedBusinesses(Collection $cuisineIds, array $transactions): void
     {
-        Business::factory(50)->create()->each(function ($business) use ($cuisineIds, $transactions) {
+        Business::factory(1_000)->create()->each(function ($business) use ($cuisineIds, $transactions) {
             $business->cuisines()->attach(
                 $cuisineIds->random(rand(2, 4))
             );
