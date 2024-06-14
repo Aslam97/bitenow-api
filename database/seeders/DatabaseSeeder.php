@@ -58,7 +58,7 @@ class DatabaseSeeder extends Seeder
         $this->getSeedData('cuisines')->each(function ($cuisine) use ($colors) {
             Cuisine::create([
                 'name' => $cuisine->name,
-                'image_url' => "images/cuisines/{$cuisine->image}",
+                'image_url' => 'images/cuisines/'.strtolower($cuisine->image),
                 'color' => collect($colors)->random(),
             ]);
         });
