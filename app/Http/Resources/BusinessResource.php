@@ -55,7 +55,6 @@ class BusinessResource extends JsonResource
                 });
             });
 
-            // make keys lowercase
             $openingHours = $expected->mapWithKeys(function ($hours, $day) {
                 return [strtolower($day) => $hours];
             });
