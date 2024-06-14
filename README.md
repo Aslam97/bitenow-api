@@ -20,5 +20,3 @@ You can find the YELP API documentation [here](https://docs.developer.yelp.com/r
 -   `include` (string) - Optional. Additional information to return. Separate multiple values with commas (e.g. "cuisines,reviews,reviews.author,openingHours").
 -   `paginate` (int) - Optional. Number of business results to return. By default, it will return 20. Maximum is 50.
 -   `page` (int) - Optional. Display the page number of the results. This will be used to calculate the `offset` value.
--   `user[latitude]` (decimal) - Optional. Latitude of the user's current location. this is used to calculate the distance between the user and the business.
--   `user[longitude]` (decimal) - Optional. Longitude of the user's current location. this is used to calculate the distance between the user and the business.
