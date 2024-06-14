@@ -6,7 +6,7 @@ if (! function_exists('day_of_week')) {
      */
     function day_of_week(?int $day = null): string
     {
-        if ($day !== null && ($day < 0 || $day > 7)) {
+        if (! is_null($day) && ($day < 0 || $day > 7)) {
             throw new InvalidArgumentException('Day must be between 0 and 7');
         }
 
