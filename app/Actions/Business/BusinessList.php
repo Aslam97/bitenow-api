@@ -4,8 +4,9 @@ namespace App\Actions\Business;
 
 use App\Http\Resources\BusinessResource;
 use App\Models\Business;
+use App\Services\GeoIp2;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Validation\Validator;
 use Lorisleiva\Actions\ActionRequest;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -15,6 +16,128 @@ use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedInclude;
 use Spatie\QueryBuilder\Filters\Filter;
 use Spatie\QueryBuilder\QueryBuilder;
+
+class BusinessList
+{
+    use AsAction;
+
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            // open_now and open_at cannot be used together
+            'filter.open_now' => ['boolean'],
+            'filter.open_at' => ['integer'],
+            // location is required if latitude and longitude are not provided
+            'filter.location' => ['required_without_all:latitude,longitude', 'string', 'min:3'],
+            'filter.radius' => ['integer', 'max:40000'],
+            'filter.price' => ['integer', 'min:1', 'max:5'],
+            // latitude and longitude must be provided
+            'latitude' => ['required_with:longitude', 'numeric', 'min:-90', 'max:90'],
+            'longitude' => ['required_with:latitude', 'numeric', 'min:-180', 'max:180'],
+            // paginate max value is 50
+            'paginate' => ['integer', 'max:50'],
+        ];
+    }
+
+    public function afterValidator(Validator $validator, ActionRequest $request): void
+    {
+        if ($request->filled('filter.open_now') && $request->filled('filter.open_at')) {
+            $validator->errors()->add('filter.open_now', 'open now and open at cannot be used together');
+            $validator->errors()->add('filter.open_at', 'open now and open at cannot be used together');
+        }
+    }
+
+    public function prepareForValidation(ActionRequest $request): void
+    {
+        $request->whenFilled('filter.open_now', function (string $input) use ($request) {
+            $request->merge([
+                'filter' => [
+                    ...$request->input('filter', []),
+                    'open_now' => filter_var($input, FILTER_VALIDATE_BOOLEAN),
+                ],
+            ]);
+        });
+    }
+
+    public function getValidationAttributes(): array
+    {
+        return [
+            'filter.open_now' => 'open now',
+            'filter.open_at' => 'open at',
+            'filter.location' => 'location',
+            'filter.radius' => 'radius',
+            'filter.price' => 'price',
+        ];
+    }
+
+    public function handle(array $data = []): mixed
+    {
+        $userPoint = new Point($data['latitude'] ?? 0, $data['longitude'] ?? 0, Srid::WGS84->value);
+
+        $businesses = QueryBuilder::for(Business::class)
+            ->allowedFilters([
+                AllowedFilter::exact('price'),
+                AllowedFilter::scope('location', 'search_address'),
+                AllowedFilter::custom('term', new TermFilter),
+                AllowedFilter::custom('cuisines', new CuisineFilter),
+                AllowedFilter::custom('transactions', new TransactionFilter),
+                AllowedFilter::callback(
+                    'radius',
+                    fn ($query, $value) => $query->when($value, fn ($query) => $query->whereDistance('coordinates', $userPoint, '<', $value))
+                ),
+                AllowedFilter::custom('open_at', new OpenAtFilter),
+                AllowedFilter::custom('open_now', new OpenNowFilter),
+            ])
+            ->allowedIncludes([
+                'reviews',
+                'reviews.author',
+                'openingHours',
+                'cuisines',
+                AllowedInclude::relationship('transactions', 'tags'), // set alias for tags relationship
+            ])
+            ->defaultSort('reviews_count')
+            ->allowedSorts(['distance', 'rating', 'reviews_count'])
+            ->withAvg('reviews as rating', 'rating')
+            ->withCount('reviews')
+            ->withDistanceSphere('coordinates', $userPoint)
+            ->when(
+                $data['paginate'] ?? false,
+                fn ($query, $paginate) => $query->paginate($paginate),
+                fn ($query) => $query->get()
+            );
+
+        return BusinessResource::collection($businesses);
+    }
+
+    public function asController(ActionRequest $request)
+    {
+        $this->setGfChoosenLoc($request);
+
+        return $this->handle(
+            $request->validated()
+        );
+    }
+
+    private function setGfChoosenLoc(ActionRequest $request)
+    {
+        $gfChosenLoc = json_decode($request->cookie('gf_chosen_loc', '{}'), true);
+
+        if (empty($gfChosenLoc)) {
+            $location = GeoIp2::all($request->ip());
+
+            Cookie::queue('gf_chosen_loc', json_encode($location), config('session.lifetime'));
+
+            $gfChosenLoc = $location;
+        }
+
+        $request->mergeIfMissing($gfChosenLoc);
+    }
+}
 
 class CuisineFilter implements Filter
 {
@@ -88,120 +211,5 @@ class OpenNowFilter implements Filter
                 );
             }
         );
-    }
-}
-
-class BusinessList
-{
-    use AsAction;
-
-    public function authorize(ActionRequest $request): bool
-    {
-        return $request->wantsJson();
-    }
-
-    public function rules(): array
-    {
-        return [
-            // open_now and open_at cannot be used together
-            'filter.open_now' => ['boolean'],
-            'filter.open_at' => ['integer'],
-            // location is required if latitude and longitude are not provided
-            'filter.location' => ['required_without_all:latitude,longitude', 'string', 'min:3'],
-            'filter.radius' => ['integer', 'max:40000'],
-            'filter.price' => ['integer', 'min:1', 'max:5'],
-            // latitude and longitude must be provided
-            'latitude' => ['required_with:longitude', 'numeric', 'min:-90', 'max:90'],
-            'longitude' => ['required_with:latitude', 'numeric', 'min:-180', 'max:180'],
-            // paginate max value is 50
-            'paginate' => ['integer', 'max:50'],
-        ];
-    }
-
-    public function afterValidator(Validator $validator, ActionRequest $request): void
-    {
-        if ($request->filled('filter.open_now') && $request->filled('filter.open_at')) {
-            $validator->errors()->add('filter.open_now', 'open now and open at cannot be used together');
-            $validator->errors()->add('filter.open_at', 'open now and open at cannot be used together');
-        }
-    }
-
-    public function prepareForValidation(ActionRequest $request): void
-    {
-        $request->whenFilled('filter.open_now', function (string $input) use ($request) {
-            $request->merge([
-                'filter' => [
-                    ...$request->input('filter', []),
-                    'open_now' => filter_var($input, FILTER_VALIDATE_BOOLEAN),
-                ],
-            ]);
-        });
-    }
-
-    public function getValidationAttributes(): array
-    {
-        return [
-            'filter.open_now' => 'open now',
-            'filter.open_at' => 'open at',
-            'filter.location' => 'location',
-            'filter.radius' => 'radius',
-            'filter.price' => 'price',
-        ];
-    }
-
-    public function handle(array $data = []): mixed
-    {
-        // dd($data['paginate']);
-        $userPoint = new Point($data['latitude'] ?? 0, $data['longitude'] ?? 0, Srid::WGS84->value);
-
-        $query = DB::enableQueryLog();
-
-        $businesses = QueryBuilder::for(Business::class)
-            ->allowedFilters([
-                AllowedFilter::exact('price'),
-                AllowedFilter::scope('location', 'search_address'),
-                AllowedFilter::custom('term', new TermFilter),
-                AllowedFilter::custom('cuisines', new CuisineFilter),
-                AllowedFilter::custom('transactions', new TransactionFilter),
-                AllowedFilter::callback(
-                    'radius',
-                    fn ($query, $value) => $query->when($value, fn ($query) => $query->whereDistance('coordinates', $userPoint, '<', $value))
-                ),
-                AllowedFilter::custom('open_at', new OpenAtFilter),
-                AllowedFilter::custom('open_now', new OpenNowFilter),
-            ])
-            ->allowedIncludes([
-                'reviews',
-                'reviews.author',
-                'openingHours',
-                'cuisines',
-                AllowedInclude::relationship('transactions', 'tags'), // set alias for tags relationship
-            ])
-            ->defaultSort('reviews_count')
-            ->allowedSorts(['distance', 'rating', 'reviews_count'])
-            ->withAvg('reviews as rating', 'rating')
-            ->withCount('reviews')
-            ->withDistanceSphere('coordinates', $userPoint)
-            ->when(
-                $data['paginate'] ?? false,
-                fn ($query, $paginate) => $query->paginate($paginate),
-                fn ($query) => $query->get()
-            );
-
-        // dd(DB::getQueryLog());
-
-        return $businesses;
-    }
-
-    public function asController(ActionRequest $request)
-    {
-        return $this->handle(
-            $request->validated()
-        );
-    }
-
-    public function jsonResponse($businesses)
-    {
-        return BusinessResource::collection($businesses);
     }
 }
