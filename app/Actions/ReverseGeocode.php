@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * This an alternative to the NextJs /api/geo endpoint.
+ * in case you want to use geo in the main API.
+ */
+
 namespace App\Actions;
 
 use Lorisleiva\Actions\ActionRequest;
@@ -17,19 +22,23 @@ class ReverseGeocode
     public function rules(): array
     {
         return [
-            'latlong' => ['required', 'string'],
+            'latitude' => ['required', 'numeric', 'min:-90', 'max:90'],
+            'longitude' => ['required', 'numeric', 'min:-180', 'max:180'],
         ];
     }
 
-    public function handle(ActionRequest $request)
+    public function handle(array $data)
     {
-        [$latitude, $longitude] = explode(',', $request->latlong);
-
         return cookie(
-            name: 'gf_chosen_loc',
-            value: json_encode(compact('latitude', 'longitude')),
+            name: 'aralu_geo',
+            value: json_encode($data),
             minutes: config('session.lifetime')
         );
+    }
+
+    public function asController(ActionRequest $request)
+    {
+        return $this->handle($request->validated());
     }
 
     public function jsonResponse(\Illuminate\Cookie\CookieJar|\Symfony\Component\HttpFoundation\Cookie $cookie)
