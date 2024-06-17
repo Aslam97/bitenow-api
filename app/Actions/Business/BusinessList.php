@@ -4,9 +4,7 @@ namespace App\Actions\Business;
 
 use App\Http\Resources\BusinessResource;
 use App\Models\Business;
-use App\Services\GeoIp2;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Cookie;
 use Illuminate\Validation\Validator;
 use Lorisleiva\Actions\ActionRequest;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -116,26 +114,9 @@ class BusinessList
 
     public function asController(ActionRequest $request)
     {
-        $this->setGfChoosenLoc($request);
-
         return $this->handle(
             $request->validated()
         );
-    }
-
-    private function setGfChoosenLoc(ActionRequest $request)
-    {
-        $gfChosenLoc = json_decode($request->cookie('gf_chosen_loc', '{}'), true);
-
-        if (empty($gfChosenLoc)) {
-            $location = GeoIp2::all($request->ip());
-
-            Cookie::queue('gf_chosen_loc', json_encode($location), config('session.lifetime'));
-
-            $gfChosenLoc = $location;
-        }
-
-        $request->mergeIfMissing($gfChosenLoc);
     }
 }
 
