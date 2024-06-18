@@ -30,7 +30,7 @@ class ReverseGeocode
     public function handle(array $data)
     {
         return cookie(
-            name: 'aralu_geo',
+            name: 'bitenow_geo',
             value: json_encode($data),
             minutes: config('session.lifetime')
         );
