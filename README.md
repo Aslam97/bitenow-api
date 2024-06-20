@@ -2,8 +2,6 @@
 
 Simple search that allows users to search for businesses in a specific location. The search will return a list of businesses that match the search criteria. The search will also allow users to filter the search results based on various criteria such as distance, rating, and categories.
 
-You can find the YELP API documentation [here](https://docs.developer.yelp.com/reference/v3_business_search).
-
 ### Query Parameters
 
 -   `filter[term]` (string) - The search term (e.g. "food", "restaurants"). If term isn't included, the endpoint will default to searching across businesses based on the provided location and popularity.
@@ -20,3 +18,14 @@ You can find the YELP API documentation [here](https://docs.developer.yelp.com/r
 -   `include` (string) - Optional. Additional information to return. Separate multiple values with commas (e.g. "cuisines,reviews,reviews.author,openingHours").
 -   `paginate` (int) - Optional. Number of business results to return. By default, it will return 20. Maximum is 50.
 -   `page` (int) - Optional. Display the page number of the results. This will be used to calculate the `offset` value.
+
+### Run on Local
+
+The fastest way to run the project is to use **Herd**. You can run the project by running the following command:
+
+1. Download and install Herd from [Herd](https://herd.laravel.com)
+2. Navigate to Herd directory `cd ~/herd`
+3. Clone this repository `git clone`
+4. Run `cd bitenow-api` and run `composer install`
+5. Copy the `.env.example` file to `.env` and update the database credentials
+6. Run `php artisan migrate --seed` to migrate the database and seed the data
