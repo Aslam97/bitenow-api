@@ -1,4 +1,6 @@
-## Simple Search API
+## Simple Search API for Bitenow
+
+> This project is more like getting things done fast. The primary goal is to provide simple search API for the main repository of Bitenow.
 
 Simple search that allows users to search for businesses in a specific location. The search will return a list of businesses that match the search criteria. The search will also allow users to filter the search results based on various criteria such as distance, rating, and categories.
 
